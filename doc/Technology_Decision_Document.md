@@ -168,6 +168,31 @@ project/
 
 ## 4. Architektura Systemu
 
+<!-- ```
+┌─────────────────────────────────────────────────────────┐
+│                    FRONTEND (React)                     │
+│  - Leaflet.js Mapa | UI Components | State Management   │
+└──────────────────┬──────────────────────────────────────┘
+                   │ (HTTPS/REST API)
+                   │
+┌──────────────────▼──────────────────────────────────────┐
+│                    NGINX (Reverse Proxy)                │
+│        - SSL/TLS | Static Files | Load Balancing       │
+└──────────────────┬──────────────────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────────────┐
+│              DJANGO + DRF (Backend)                     │
+│  - Authentication (JWT) | API Endpoints | Business Logic│
+└──────────────────┬──────────────────────────────────────┘
+                   │
+        ┌──────────┴──────────┐
+        │                     │
+   ┌────▼──────┐      ┌──────▼──────┐
+   │  MongoDB  │      │    Redis    │
+   │  (Data)   │      │  (Caching)  │
+   └───────────┘      └─────────────┘
+``` -->
+
 ![alt text](diagrams/simple_system_architecture.png)
 
 ---
