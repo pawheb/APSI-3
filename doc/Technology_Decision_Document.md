@@ -309,8 +309,8 @@ Do podjęcia decyzji i zatwierdzenia przez:
 
 - Paweł Hebda (Project Manager)
 - Stanisław Sikorski (Backend Lead)
-- Adam Czupryński (Frontend Lead)
-- Ola Samsel (UX)
+- Adam Czupryński ( ? )
+- Ola Samsel (Fronend Lead / UX)
 - Wiktor Sosnowski (Full Stack)
 
 ---
