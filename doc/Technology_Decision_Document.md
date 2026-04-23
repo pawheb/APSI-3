@@ -168,48 +168,25 @@ project/
 
 ## 4. Architektura Systemu
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    FRONTEND (React)                     │
-│  - Leaflet.js Mapa | UI Components | State Management   │
-└──────────────────┬──────────────────────────────────────┘
-                   │ (HTTPS/REST API)
-                   │
-┌──────────────────▼──────────────────────────────────────┐
-│                    NGINX (Reverse Proxy)                │
-│        - SSL/TLS | Static Files | Load Balancing       │
-└──────────────────┬──────────────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────────────┐
-│              DJANGO + DRF (Backend)                     │
-│  - Authentication (JWT) | API Endpoints | Business Logic│
-└──────────────────┬──────────────────────────────────────┘
-                   │
-        ┌──────────┴──────────┐
-        │                     │
-   ┌────▼──────┐      ┌──────▼──────┐
-   │  MongoDB  │      │    Redis    │
-   │  (Data)   │      │  (Caching)  │
-   └───────────┘      └─────────────┘
-```
+![alt text](diagrams/simple_system_architecture.png)
 
 ---
 
 ## 5. Wymagania Techniczne dla Zespołu
 
 ### 5.1 Obowiązkowe (Must-have)
-- ✅ Python 3.10+ (backend)
-- ✅ JavaScript/TypeScript (frontend)
-- ✅ Git & GitHub (version control)
-- ✅ Docker (containerization)
-- ✅ REST API koncepty
+- Python 3.10+ (backend)
+- JavaScript/TypeScript (frontend)
+- Git & GitHub (version control)
+- Docker (containerization)
+- REST API koncepty
 
 ### 5.2 Zalecane (Nice-to-have)
-- 📚 Django framework
-- 📚 React framework
-- 📚 MongoDB basics
-- 📚 JWT authentication
-- 📚 Docker Compose
+- Django framework
+- React framework
+- MongoDB basics
+- JWT authentication
+- Docker Compose
 
 ### 5.3 Narzędzia deweloperskie
 ```bash
