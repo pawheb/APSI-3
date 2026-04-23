@@ -1,0 +1,291 @@
+:root {
+  font-family: "Segoe UI Variable Display", "Trebuchet MS", sans-serif;
+  color: #0f172a;
+  background:
+    radial-gradient(circle at top left, rgba(45, 212, 191, 0.18), transparent 30%),
+    linear-gradient(135deg, #ecfeff 0%, #f8fafc 48%, #e2e8f0 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: minmax(320px, 380px) 1fr;
+  height: 100vh;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  height: 100vh;
+  padding: 1.5rem;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  background: rgba(255, 255, 255, 0.76);
+  backdrop-filter: blur(14px);
+  border-right: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.sidebar__header h1 {
+  margin: 0.25rem 0 0.75rem;
+  font-size: clamp(2rem, 4vw, 2.7rem);
+  line-height: 1;
+}
+
+.lead {
+  margin: 0;
+  color: #334155;
+  line-height: 1.6;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.panel__block {
+  padding: 1rem 1.05rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(203, 213, 225, 0.85);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+}
+
+.panel__block h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.steps {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: #334155;
+  line-height: 1.6;
+}
+
+.point-list {
+  margin: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.point-card {
+  padding: 0.85rem 0.95rem;
+  border-radius: 16px;
+}
+
+.point-card--start {
+  background: #ecfdf5;
+}
+
+.point-card--end {
+  background: #fef2f2;
+}
+
+.point-list dt {
+  margin-bottom: 0.35rem;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
+.point-list dd {
+  margin: 0;
+  font-weight: 600;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.panel__actions {
+  display: flex;
+  gap: 0.85rem;
+}
+
+.slider-group {
+  display: grid;
+  gap: 1rem;
+}
+
+.slider-field {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.slider-field__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.slider-field input[type="range"] {
+  appearance: none;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: #d4d4d8;
+  outline: none;
+}
+
+.slider-field input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: #111827;
+  cursor: pointer;
+}
+
+.slider-field input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: #111827;
+  cursor: pointer;
+}
+
+.slider-field input[type="range"]::-moz-range-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #d4d4d8;
+}
+
+.button {
+  flex: 1;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.9rem 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    opacity 150ms ease;
+}
+
+.button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.button--ghost {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  color: #0f172a;
+}
+
+.button--primary {
+  background: linear-gradient(135deg, #0f766e, #0891b2);
+  color: #f8fafc;
+  box-shadow: 0 14px 30px rgba(8, 145, 178, 0.25);
+}
+
+.status {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.status--error {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.map-stage {
+  height: 100vh;
+  padding: 1rem;
+  overflow: hidden;
+}
+
+.map-container,
+.leaflet-map,
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+}
+
+.map-container {
+  height: 100%;
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+}
+
+.leaflet-marker-icon {
+  filter: drop-shadow(0 10px 16px rgba(15, 23, 42, 0.22));
+}
+
+@media (max-width: 900px) {
+  body {
+    overflow: auto;
+  }
+
+  .app-shell {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .sidebar {
+    height: auto;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+  }
+
+  .map-stage {
+    height: auto;
+    min-height: 60vh;
+    overflow: visible;
+  }
+
+  .map-container {
+    min-height: 60vh;
+    height: 60vh;
+    border-radius: 24px 24px 0 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .sidebar,
+  .map-stage {
+    padding: 0.85rem;
+  }
+
+  .panel__actions {
+    flex-direction: column;
+  }
+}
