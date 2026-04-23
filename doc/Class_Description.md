@@ -1,197 +1,224 @@
-# Opis klas diagramu klasowego
+# Opis klas
 
-![alt text](./diagrams/class_diagram.svg)
+> **Uwaga techniczna:** Projekt używa Django 4.2 + MongoEngine 0.24 + Django REST Framework 3.14.
+> W tym stacku modele nie zawierają getterów, setterów ani metod CRUD - dostęp do pól odbywa się
+> bezpośrednio przez atrybuty (np. `user.email`), a operacje na bazie danych są obsługiwane przez
+> ViewSety i Serializery DRF. W modelach zostają wyłącznie metody z logiką biznesową.
+> Uwierzytelnianie (login, register, refresh token) obsługuje osobna klasa `AuthService`
+> korzystająca z `djangorestframework-simplejwt`.
+
+---
+
+![alt text](./diagrams/class_diagram.svg "Diagram klas")
+
+---
 
 ## User
 
-Reprezentuje konto użytkownika w systemie. Przechowuje dane uwierzytelniające i podstawowe informacje profilowe.
+Model MongoEngine reprezentujący konto użytkownika. Dziedziczy z `mongoengine.Document`,
+co oznacza że jest oddzielną kolekcją w MongoDB. Dane uwierzytelniające obsługuje `AuthService`.
 
 **Atrybuty**
 
-| Atrybut | Typ | Opis |
+| Atrybut | Typ MongoEngine | Opis |
 |---|---|---|
-| `id` | ObjectId | Unikalny identyfikator w bazie MongoDB |
-| `email` | str | Adres email, używany do logowania |
-| `password_hash` | str | Hash hasła (bcrypt/argon2), nigdy plaintext |
-| `username` | str | Wyświetlana nazwa użytkownika |
-| `created_at` | datetime | Data i czas założenia konta |
-| `is_active` | bool | Flaga określająca czy konto jest aktywne |
+| `id` | ObjectIdField | Unikalny identyfikator, generowany automatycznie przez MongoDB |
+| `email` | EmailField (unique=True) | Adres email, używany jako login - musi być unikalny |
+| `password_hash` | StringField | Hash hasła generowany przez `djangorestframework-simplejwt` / bcrypt |
+| `username` | StringField | Wyświetlana nazwa użytkownika |
+| `created_at` | DateTimeField | Data założenia konta, ustawiana automatycznie przy tworzeniu |
+| `is_active` | BooleanField | Flaga aktywności konta, używana przez Django do autoryzacji |
 
-**Metody**
+**Metody biznesowe**
 
 | Metoda | Zwraca | Opis |
 |---|---|---|
-| `register(email, password)` | User | Tworzy nowe konto, hashuje hasło przed zapisem |
-| `login(email, password)` | JWT | Weryfikuje dane i wydaje parę tokenów access + refresh |
-| `update_profile()` | void | Aktualizuje dane profilowe użytkownika |
-| `deactivate()` | void | Dezaktywuje konto bez usuwania danych z bazy |
+| `deactivate()` | void | Ustawia `is_active = False` i zapisuje - miękkie usunięcie konta bez kasowania danych |
+
+---
+
+## AuthService
+
+Serwis obsługujący uwierzytelnianie. Nie jest modelem MongoEngine - to klasa serwisowa
+wywoływana przez widoki DRF. Używa `djangorestframework-simplejwt` do generowania tokenów JWT.
+
+**Metody biznesowe**
+
+| Metoda | Zwraca | Opis |
+|---|---|---|
+| `register(email, password, username)` | User | Waliduje dane, hashuje hasło, tworzy dokument User w MongoDB |
+| `login(email, password)` | `{access, refresh}` | Weryfikuje dane logowania, zwraca parę tokenów JWT (access: 15–60 min, refresh: 7 dni) |
+| `refresh_token(refresh)` | `{access}` | Wydaje nowy access token na podstawie ważnego refresh tokenu |
 
 ---
 
 ## UserPreferences
 
-Przechowuje preferencje spacerowe powiązane z konkretnym użytkownikiem. Używane przez RouteOptimizer do dopasowania trasy.
+Model MongoEngine przechowujący preferencje spacerowe. Powiązany z User przez `ReferenceField`.
+Używany przez `RouteOptimizer` przy wyznaczaniu trasy.
 
 **Atrybuty**
 
-| Atrybut | Typ | Opis |
+| Atrybut | Typ MongoEngine | Opis |
 |---|---|---|
-| `id` | ObjectId | Unikalny identyfikator w bazie MongoDB |
-| `user_id` | ObjectId | Referencja do właściciela preferencji |
-| `noise_level` | int (1–5) | Akceptowalny poziom hałasu na trasie (1 = cisza, 5 = bez ograniczeń) |
-| `lighting_level` | int (1–5) | Wymagany poziom oświetlenia (1 = tylko dobrze oświetlone, 5 = bez ograniczeń) |
-| `max_distance_km` | float | Maksymalna długość trasy w kilometrach |
-| `prefer_green_areas` | bool | Czy trasa powinna maksymalizować bliskość terenów zielonych |
+| `id` | ObjectIdField | Unikalny identyfikator |
+| `user` | ReferenceField(User) | Referencja do właściciela - przy usunięciu Usera kaskadowo usuwane |
+| `noise_level` | IntField (min=1, max=5) | Akceptowalny poziom hałasu (1 = tylko ciche ulice, 5 = bez ograniczeń) |
+| `lighting_level` | IntField (min=1, max=5) | Wymagane oświetlenie (1 = tylko dobrze oświetlone trasy, 5 = bez ograniczeń) |
+| `max_distance_km` | FloatField | Maksymalna długość trasy w kilometrach |
+| `prefer_green_areas` | BooleanField | Czy algorytm ma maksymalizować udział terenów zielonych |
 
-**Metody**
+**Metody biznesowe**
 
 | Metoda | Zwraca | Opis |
 |---|---|---|
-| `save()` | void | Zapisuje lub aktualizuje preferencje w bazie danych |
-| `get_by_user(user_id)` | Prefs | Pobiera preferencje dla danego użytkownika |
-| `reset_to_defaults()` | void | Przywraca wszystkie preferencje do wartości domyślnych |
+| `reset_to_defaults()` | void | Przywraca wszystkie pola do wartości domyślnych zdefiniowanych w modelu |
 
 ---
 
 ## Route
 
-Reprezentuje wyznaczoną trasę spacerową między dwoma punktami. Trasa jest obliczana przez RouteOptimizer na podstawie preferencji użytkownika.
+Model MongoEngine reprezentujący wyznaczoną trasę. `GeoPoint` jest przechowywany jako
+`EmbeddedDocument` - nie jako osobna kolekcja. Trasa jest wyznaczana przez `RouteOptimizer`,
+a nie przez samą klasę.
 
 **Atrybuty**
 
-| Atrybut | Typ | Opis |
+| Atrybut | Typ MongoEngine | Opis |
 |---|---|---|
-| `id` | ObjectId | Unikalny identyfikator w bazie MongoDB |
-| `user_id` | ObjectId | Referencja do użytkownika, który stworzył trasę |
-| `start_point` | GeoPoint | Punkt początkowy trasy |
-| `end_point` | GeoPoint | Punkt końcowy trasy |
-| `waypoints` | [GeoPoint] | Lista punktów pośrednich definiujących przebieg trasy |
-| `distance_km` | float | Całkowita długość trasy w kilometrach |
-| `green_area_ratio` | float | Udział terenów zielonych w trasie (0.0–1.0) |
+| `id` | ObjectIdField | Unikalny identyfikator |
+| `user` | ReferenceField(User) | Właściciel trasy |
+| `start_point` | EmbeddedDocumentField(GeoPoint) | Punkt startowy wybrany przez użytkownika na mapie |
+| `end_point` | EmbeddedDocumentField(GeoPoint) | Punkt końcowy wybrany przez użytkownika na mapie |
+| `waypoints` | EmbeddedDocumentListField(GeoPoint) | Lista punktów pośrednich definiujących przebieg trasy |
+| `distance_km` | FloatField | Całkowita długość trasy w kilometrach |
+| `green_area_ratio` | FloatField (min=0.0, max=1.0) | Udział terenów zielonych w trasie obliczony przez RouteOptimizer |
 
-**Metody**
+**Metody biznesowe**
 
-| Metoda | Zwraca | Opis |
-|---|---|---|
-| `calculate(prefs)` | Route | Wywołuje RouteOptimizer i zwraca optymalną trasę dla danych preferencji |
-| `get_by_id(id)` | Route | Pobiera trasę po identyfikatorze |
-| `list_by_user(user_id)` | [Route] | Zwraca wszystkie trasy danego użytkownika |
-| `delete()` | void | Usuwa trasę z bazy danych |
+Brak - Route jest czystym modelem danych. Tworzenie trasy należy do `RouteOptimizer`,
+a operacje CRUD obsługuje `RouteViewSet` w DRF.
 
 ---
 
 ## Walk
 
-Reprezentuje konkretny spacer — pojedyncze użycie trasy przez użytkownika. Zapisuje rzeczywisty przebieg spaceru, który może różnić się od planowanej trasy.
+Model MongoEngine reprezentujący pojedynczy spacer. Przechowuje zarówno planowaną trasę
+(przez `ReferenceField` do Route) jak i rzeczywistą ścieżkę (`actual_path`).
 
 **Atrybuty**
 
-| Atrybut | Typ | Opis |
+| Atrybut | Typ MongoEngine | Opis |
 |---|---|---|
-| `id` | ObjectId | Unikalny identyfikator w bazie MongoDB |
-| `user_id` | ObjectId | Referencja do użytkownika wykonującego spacer |
-| `route_id` | ObjectId | Referencja do planowanej trasy |
-| `started_at` | datetime | Czas rozpoczęcia spaceru |
-| `ended_at` | datetime | Czas zakończenia spaceru |
-| `status` | WalkStatus | Aktualny stan spaceru |
-| `actual_path` | [GeoPoint] | Rzeczywista ścieżka przebyta przez użytkownika |
+| `id` | ObjectIdField | Unikalny identyfikator |
+| `user` | ReferenceField(User) | Użytkownik wykonujący spacer |
+| `route` | ReferenceField(Route) | Planowana trasa będąca podstawą spaceru |
+| `started_at` | DateTimeField | Czas naciśnięcia "Start" przez użytkownika |
+| `ended_at` | DateTimeField | Czas zakończenia lub anulowania spaceru |
+| `status` | StringField (choices=WalkStatus) | Aktualny stan spaceru - wartości z enumeracji WalkStatus |
+| `actual_path` | EmbeddedDocumentListField(GeoPoint) | Rzeczywista ścieżka GPS nagrana podczas spaceru |
 
-**Metody**
+**Metody biznesowe**
 
 | Metoda | Zwraca | Opis |
 |---|---|---|
-| `start()` | void | Rozpoczyna spacer, ustawia `started_at` i status `IN_PROGRESS` |
-| `stop()` | void | Kończy spacer, ustawia `ended_at` i status `COMPLETED` lub `CANCELLED` |
-| `repeat(walk_id)` | Walk | Tworzy nowy spacer na podstawie trasy poprzedniego |
-| `list_by_user(user_id)` | [Walk] | Zwraca historię spacerów danego użytkownika |
+| `start()` | void | Ustawia `started_at = now()` i `status = IN_PROGRESS`, zapisuje dokument |
+| `stop()` | void | Ustawia `ended_at = now()` i `status = COMPLETED`, wyzwala obliczenie statystyk |
+| `cancel()` | void | Ustawia `status = CANCELLED` - spacer przerwany przed ukończeniem trasy |
 
 ---
 
 ## WalkStatistics
 
-Przechowuje obliczone statystyki dla pojedynczego spaceru. Tworzona automatycznie po zakończeniu spaceru, nierozerwalnie z nim powiązana.
+Model MongoEngine z obliczonymi statystykami spaceru. Tworzony automatycznie po wywołaniu
+`walk.stop()`. Jako embedded document jest częścią dokumentu Walk, nie osobną kolekcją.
 
 **Atrybuty**
 
-| Atrybut | Typ | Opis |
+| Atrybut | Typ MongoEngine | Opis |
 |---|---|---|
-| `id` | ObjectId | Unikalny identyfikator w bazie MongoDB |
-| `walk_id` | ObjectId | Referencja do spaceru, którego dotyczą statystyki |
-| `distance_km` | float | Faktyczny dystans przebyty podczas spaceru |
-| `green_area_km` | float | Dystans przebyty przez tereny zielone |
-| `duration_min` | int | Czas trwania spaceru w minutach |
-| `total_walks` | int | Łączna liczba spacerów użytkownika (statystyka sumaryczna) |
+| `distance_km` | FloatField | Faktyczny dystans obliczony z `actual_path` metodą Haversine |
+| `green_area_km` | FloatField | Część dystansu przebyta przez tereny zielone wg danych z MapService |
+| `duration_min` | IntField | Czas trwania spaceru w minutach (`ended_at - started_at`) |
 
-**Metody**
+**Metody biznesowe**
 
 | Metoda | Zwraca | Opis |
 |---|---|---|
-| `calculate(walk)` | Statistics | Oblicza wszystkie statystyki na podstawie danych z zakończonego spaceru |
-| `get_summary(user_id)` | dict | Zwraca zagregowane statystyki wszystkich spacerów użytkownika |
+| `calculate(walk)` | WalkStatistics | Oblicza wszystkie pola na podstawie `actual_path` i danych z MapService |
+
+> Statystyki sumaryczne (łączny dystans, liczba spacerów) są obliczane przez `WalkViewSet`
+> w DRF przez agregację MongoDB - nie są przechowywane jako osobne pole.
 
 ---
 
 ## GeoPoint
 
-Klasa pomocnicza reprezentująca punkt geograficzny. Używana jako embedded document w MongoDB — nie jest oddzielną kolekcją.
+`EmbeddedDocument` MongoEngine - nie ma własnej kolekcji w MongoDB, jest przechowywany
+wewnątrz dokumentów Route i Walk. Używa natywnego indeksu geospatial MongoDB (`2dsphere`).
 
 **Atrybuty**
 
-| Atrybut | Typ | Opis |
+| Atrybut | Typ MongoEngine | Opis |
 |---|---|---|
-| `lat` | float | Szerokość geograficzna (latitude) |
-| `lng` | float | Długość geograficzna (longitude) |
-| `address` | str | Opcjonalny czytelny adres punktu |
+| `lat` | FloatField | Szerokość geograficzna (latitude), zakres -90 do 90 |
+| `lng` | FloatField | Długość geograficzna (longitude), zakres -180 do 180 |
+| `address` | StringField | Opcjonalny czytelny adres - wypełniany przez reverse geocoding |
 
-**Metody**
+**Metody biznesowe**
 
 | Metoda | Zwraca | Opis |
 |---|---|---|
-| `to_geojson()` | dict | Konwertuje punkt do formatu GeoJSON kompatybilnego z Leaflet.js |
-| `distance_to(other: GeoPoint)` | float | Oblicza odległość w kilometrach do innego punktu (wzór Haversine) |
-| `is_in_green_area()` | bool | Sprawdza przez MapService czy punkt leży na terenie zielonym |
+| `to_geojson()` | dict | Konwertuje punkt do formatu GeoJSON `{"type": "Point", "coordinates": [lng, lat]}` wymaganego przez Leaflet.js |
+| `distance_to(other: GeoPoint)` | float | Oblicza odległość w kilometrach do innego punktu wzorem Haversine |
+| `is_in_green_area()` | bool | Odpytuje MapService czy punkt leży na terenie zielonym wg danych `api.um.warszawa.pl` |
 
 ---
 
 ## WalkStatus
 
-Enumeracja określająca możliwe stany spaceru.
+Enumeracja jako stałe klasy Python (`TextChoices`). Używana jako `choices` w polu
+`StringField` modelu Walk.
 
 | Wartość | Opis |
 |---|---|
-| `IN_PROGRESS` | Spacer trwa |
-| `COMPLETED` | Spacer zakończony poprawnie |
-| `CANCELLED` | Spacer przerwany przez użytkownika |
-| `PAUSED` | Spacer wstrzymany |
+| `IN_PROGRESS` | Spacer aktualnie trwa |
+| `COMPLETED` | Spacer zakończony przez użytkownika po przebyciu trasy |
+| `CANCELLED` | Spacer przerwany przed ukończeniem trasy |
+| `PAUSED` | Spacer wstrzymany tymczasowo |
 
 ---
 
 ## MapService
 
-Interfejs definiujący kontrakt dla serwisów mapowych. Dzięki niemu RouteOptimizer jest niezależny od konkretnego dostawcy danych — można podmienić implementację bez zmiany logiki biznesowej.
+Interfejs (abstrakcyjna klasa Python z `abc.ABC`) definiujący kontrakt dla serwisów mapowych.
+`RouteOptimizer` zależy od tego interfejsu, a nie od konkretnej implementacji -
+umożliwia podmianę źródła danych bez zmiany logiki biznesowej (zasada DIP).
 
 **Metody**
 
 | Metoda | Zwraca | Opis |
 |---|---|---|
-| `get_green_areas()` | [Area] | Pobiera listę terenów zielonych w okolicy |
-| `get_noise_level()` | float | Pobiera poziom hałasu dla danego obszaru |
-| `get_lighting()` | [Zone] | Pobiera dane o strefach oświetlenia |
-| `get_map_tiles()` | TileURL | Zwraca URL do kafelków mapy dla Leaflet.js |
+| `get_green_areas(bbox)` | [Area] | Pobiera listę terenów zielonych w podanym obszarze mapy |
+| `get_noise_level(point)` | float | Pobiera poziom hałasu dla danego punktu geograficznego |
+| `get_lighting(bbox)` | [Zone] | Pobiera strefy oświetlenia ulicznego w podanym obszarze |
+| `get_map_tiles()` | TileURL | Zwraca URL do kafelków mapy kompatybilnych z Leaflet.js |
 
 ---
 
 ## LeafletMapService
 
-Konkretna implementacja interfejsu MapService. Łączy się z zewnętrznymi API Warszawy i serwuje dane do RouteOptimizera.
+Konkretna implementacja `MapService`. Wykonuje zapytania HTTP do zewnętrznych API Warszawy
+i zwraca dane w formacie wymaganym przez `RouteOptimizer`. Wyniki są cachowane w Redis
+(TTL: 1 godzina) żeby nie przekraczać limitów zewnętrznych API.
 
 **Atrybuty**
 
 | Atrybut | Typ | Opis |
 |---|---|---|
-| `api_url` | str | URL do `api.um.warszawa.pl` — dane o terenach zielonych |
-| `wms_url` | str | URL do `wms.um.warszawa.pl` — dane o oświetleniu i hałasie |
-| `opendata_url` | str | URL do dodatkowych zbiorów danych OpenData Warszawy |
+| `api_url` | str | `https://api.um.warszawa.pl` - dane o terenach zielonych |
+| `wms_url` | str | `https://wms.um.warszawa.pl` - dane o oświetleniu i poziomie hałasu |
+| `opendata_url` | str | URL do dodatkowych zbiorów OpenData Warszawy |
 
 Implementuje wszystkie metody interfejsu `MapService`. Brak dodatkowych metod publicznych.
 
@@ -199,20 +226,22 @@ Implementuje wszystkie metody interfejsu `MapService`. Brak dodatkowych metod pu
 
 ## RouteOptimizer
 
-Serwis odpowiedzialny za wyznaczenie optymalnej trasy spacerowej. Przyjmuje dwa punkty i preferencje użytkownika, a następnie oblicza najlepszą ścieżkę uwzględniając hałas, oświetlenie i tereny zielone.
+Serwis odpowiedzialny za wyznaczenie optymalnej trasy. Nie jest modelem MongoEngine -
+to klasa serwisowa wywoływana przez `RouteViewSet`. Otrzymuje `MapService` przez
+dependency injection, co umożliwia łatwe testowanie z mockiem.
 
 **Atrybuty**
 
 | Atrybut | Typ | Opis |
 |---|---|---|
-| `map_service` | MapService | Wstrzyknięta implementacja serwisu mapowego |
-| `weight_noise` | float | Waga kryterium hałasu w algorytmie optymalizacji |
-| `weight_green` | float | Waga kryterium terenów zielonych w algorytmie optymalizacji |
-| `weight_light` | float | Waga kryterium oświetlenia w algorytmie optymalizacji |
+| `map_service` | MapService | Wstrzyknięta implementacja serwisu mapowego (domyślnie `LeafletMapService`) |
+| `weight_noise` | float | Waga kryterium hałasu w funkcji oceny ścieżki |
+| `weight_green` | float | Waga kryterium terenów zielonych w funkcji oceny ścieżki |
+| `weight_light` | float | Waga kryterium oświetlenia w funkcji oceny ścieżki |
 
-**Metody**
+**Metody biznesowe**
 
 | Metoda | Zwraca | Opis |
 |---|---|---|
-| `optimize(start, end, prefs)` | Route | Główna metoda — wyznacza optymalną trasę między punktami na podstawie preferencji |
-| `score_path(waypts)` | float | Ocenia jakość proponowanej ścieżki jako suma ważona kryteriów |
+| `optimize(start, end, prefs)` | Route | Główna metoda - pobiera dane z MapService, generuje kandydatów na trasę, wybiera najlepszą i zwraca obiekt Route gotowy do zapisu |
+| `score_path(waypoints)` | float | Ocenia jakość ścieżki jako sumę ważoną: `weight_noise * hałas + weight_green * zieleń + weight_light * oświetlenie` |
